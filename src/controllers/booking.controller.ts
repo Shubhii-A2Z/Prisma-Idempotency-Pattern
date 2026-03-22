@@ -6,6 +6,11 @@ import logger from "../config/logger.config";
 
 export async function createBookingHandler(req: Request,resp: Response){
     const booking=await createBookingService(req.body);
+    if(!booking){
+        return resp.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            data: {},
+        });
+    }
     return resp.status(StatusCodes.CREATED).json({
         bookingId: booking.bookingId,
         idempotencyKey: booking.idempotencyKey

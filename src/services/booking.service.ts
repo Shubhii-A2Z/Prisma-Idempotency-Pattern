@@ -1,25 +1,41 @@
+import serverConfig from "../config/server.config";
 import { CreateBookingDTO } from "../dto/booking.dto";
 import { prismaClient } from "../prisma/client";
 import { confirmBooking, createBooking, createIdempotencyKey, finalizeIdempotencyKey, getIdempotencyKey } from "../repositories/booking.repo";
 import generateIdempotencyKey from "../utils/generateIdempotencyKey";
+import { acquireLock } from "../utils/redlock.redis";
 
 export async function createBookingService(createBookingDTO: CreateBookingDTO) {
-    const booking=await createBooking({
-        userId: createBookingDTO.userId,
-        hotelId: createBookingDTO.hotelId,
-        bookingAmount: createBookingDTO.bookingAmount
-    });
+    const ttl=serverConfig.LOCK_TTL; // Lock expiry time (in milliseconds)
+    const resource=`hotel:${createBookingDTO.hotelId}`;
 
-    // Generating unique idempotency key for this booking
-    const idempotencyKey=generateIdempotencyKey();
+    try {
+        await acquireLock([resource],ttl); 
 
-    // Storing this key corresponding to booking id inside db
-    await createIdempotencyKey(idempotencyKey,booking.id);
+        // Critical section - perform operations that require the lock
+        const booking=await createBooking({
+            userId: createBookingDTO.userId,
+            hotelId: createBookingDTO.hotelId,
+            bookingAmount: createBookingDTO.bookingAmount
+        });
 
-    return {
-        bookingId: booking.id,
-        idempotencyKey: idempotencyKey
-    };
+        // Generating unique idempotency key for this booking
+        const idempotencyKey=generateIdempotencyKey();
+
+        // Storing this key corresponding to booking id inside db
+        await createIdempotencyKey(idempotencyKey,booking.id);
+
+        // await releaseLock(lock);
+
+        return {
+            bookingId: booking.id,
+            idempotencyKey: idempotencyKey
+        };
+    } catch (error) {
+        console.log(error);
+        throw new Error('Failed to acquire lock');
+    }
+
 }
 
 export async function confirmBookingService(idempotencyKey: string) {

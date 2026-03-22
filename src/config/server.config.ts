@@ -5,4 +5,5 @@ export default{
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_PORT: process.env.DATABASE_PORT,
     DATABASE_PASSWORD: process.env.DATABASE_PASSWORD,
+    LOCK_TTL: Number(process.env.LOCK_TTL)
 }
