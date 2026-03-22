@@ -1,4 +1,5 @@
 import { CreateBookingDTO } from "../dto/booking.dto";
+import { prismaClient } from "../prisma/client";
 import { confirmBooking, createBooking, createIdempotencyKey, finalizeIdempotencyKey, getIdempotencyKey } from "../repositories/booking.repo";
 import generateIdempotencyKey from "../utils/generateIdempotencyKey";
 
@@ -9,8 +10,10 @@ export async function createBookingService(createBookingDTO: CreateBookingDTO) {
         bookingAmount: createBookingDTO.bookingAmount
     });
 
+    // Generating unique idempotency key for this booking
     const idempotencyKey=generateIdempotencyKey();
 
+    // Storing this key corresponding to booking id inside db
     await createIdempotencyKey(idempotencyKey,booking.id);
 
     return {
@@ -19,18 +22,24 @@ export async function createBookingService(createBookingDTO: CreateBookingDTO) {
     };
 }
 
-export async function finalizeBookingService(idempotencyKey: string) {
-    const idempotencyKeyData=await getIdempotencyKey(idempotencyKey);
+export async function confirmBookingService(idempotencyKey: string) {
+    return await prismaClient.$transaction(async (tx)=>{
 
-    if(!idempotencyKeyData){
-        throw new Error('Idempotency key not found');
-    }
-    if(idempotencyKeyData.completed){
-        throw new Error('Booking already finalized');
-    }
-    
-    const booking=await confirmBooking(idempotencyKeyData.id);
-    await finalizeIdempotencyKey(idempotencyKey);
+        // Fetching the idempotency key
+        const idempotencyKeyData=await getIdempotencyKey(idempotencyKey,tx);
 
-    return booking;
+        if(!idempotencyKeyData){  // No such key found, invalid request
+            throw new Error('Idempotency key not found');
+        }
+        if(idempotencyKeyData.completed){ // Booking already completed
+            throw new Error('Booking already finalized');
+        }
+        
+        // Confirming the booking
+        const booking=await confirmBooking(idempotencyKeyData.bookingId,tx);
+        await finalizeIdempotencyKey(idempotencyKey,tx);
+
+        return booking;
+
+    });
 }

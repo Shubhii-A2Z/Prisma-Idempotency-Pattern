@@ -1,4 +1,5 @@
 import winston from 'winston';
+import DailyRotateFile from 'winston-daily-rotate-file';
 
 const logger=winston.createLogger({
     // How the log should look like
@@ -16,6 +17,13 @@ const logger=winston.createLogger({
     // where should the log go
     transports: [
         new winston.transports.Console(), // Printing it to console
+
+        new DailyRotateFile({ // Saving logs to a file
+            filename: 'logs/%DATE%-application.logs', // fileName
+            maxFiles: '2d', // Maximum logs/days
+            datePattern: 'YYYY-MM-DD',
+            zippedArchive: true// compress old logs
+        }),
     ]
 });
 

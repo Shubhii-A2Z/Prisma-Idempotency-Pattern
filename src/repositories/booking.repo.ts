@@ -23,8 +23,8 @@ export async function createIdempotencyKey(key: string,bookingId: number) {
     return idempotencyKey;
 }
 
-export async function getIdempotencyKey(key:string) {
-    const idempotencyKey=await prismaClient.idempotencyKey.findUnique({
+export async function getIdempotencyKey(key:string,tx: Prisma.TransactionClient) {
+    const idempotencyKey=await tx.idempotencyKey.findUnique({
         where: {
             key
         }
@@ -33,8 +33,8 @@ export async function getIdempotencyKey(key:string) {
     return  idempotencyKey;
 }
 
-export async function finalizeIdempotencyKey(key:string) {
-    const idempotencyKey=await prismaClient.idempotencyKey.update({
+export async function finalizeIdempotencyKey(key:string,tx: Prisma.TransactionClient) {
+    const idempotencyKey=await tx.idempotencyKey.update({
         where: {
             key
         },
@@ -56,13 +56,13 @@ export async function getBookingById(bookingId: number) {
     return booking;
 }
 
-export async function confirmBooking(bookingId: number) {
-    const booking=await prismaClient.booking.update({
+export async function confirmBooking(bookingId: number,tx: Prisma.TransactionClient) {
+    const booking=await tx.booking.update({
         where: {
             id: bookingId
         },
         data: {
-            status: "CANCELLED"
+            status: "CONFIRMED"
         }
     });
     

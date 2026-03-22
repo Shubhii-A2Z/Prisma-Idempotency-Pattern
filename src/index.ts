@@ -3,8 +3,11 @@ import express from 'express';
 import serverConfig from './config/server.config';
 import v1Router from './routers/v1';
 import logger from './config/logger.config';
+import { attachCorrelationIdMiddleware } from './middlewares/correlationId.middleware';
 
 const app=express();
+
+app.use(attachCorrelationIdMiddleware);
 
 app.use(express.json());
 app.use('/',v1Router);
