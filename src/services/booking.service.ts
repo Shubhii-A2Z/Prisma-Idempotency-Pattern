@@ -1,7 +1,9 @@
+import logger from "../config/logger.config";
 import serverConfig from "../config/server.config";
 import { CreateBookingDTO } from "../dto/booking.dto";
 import { prismaClient } from "../prisma/client";
 import { confirmBooking, createBooking, createIdempotencyKey, finalizeIdempotencyKey, getIdempotencyKey } from "../repositories/booking.repo";
+import { InternalServerError, UnauthorizedAccess } from "../utils/errors/app.error";
 import generateIdempotencyKey from "../utils/generateIdempotencyKey";
 import { acquireLock } from "../utils/redlock.redis";
 
@@ -32,8 +34,8 @@ export async function createBookingService(createBookingDTO: CreateBookingDTO) {
             idempotencyKey: idempotencyKey
         };
     } catch (error) {
-        console.log(error);
-        throw new Error('Failed to acquire lock');
+        logger.error('Failed to acquire lock',{success: false});
+        throw new InternalServerError('Failed to acquire lock');
     }
 
 }
@@ -45,10 +47,12 @@ export async function confirmBookingService(idempotencyKey: string) {
         const idempotencyKeyData=await getIdempotencyKey(idempotencyKey,tx);
 
         if(!idempotencyKeyData){  // No such key found, invalid request
-            throw new Error('Idempotency key not found');
+            logger.error('Invalid Key',{success: false});
+            throw new UnauthorizedAccess('Idempotency key not found');
         }
         if(idempotencyKeyData.completed){ // Booking already completed
-            throw new Error('Booking already finalized');
+            logger.error('Booking Completed',{success: false});
+            throw new InternalServerError('Booking already finalized');
         }
         
         // Confirming the booking
